@@ -153,16 +153,6 @@
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toBottomOf="@id/scheduleLabel" />
 
-            <Button
-                android:id="@+id/selectDateButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="16dp"
-                android:layout_marginTop="8dp"
-                android:text="Выбрать дату"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/startDate" />
-
             <TextView
                 android:id="@+id/endDateLabel"
                 android:layout_width="wrap_content"
@@ -174,7 +164,7 @@
                 android:textSize="16sp"
                 android:textStyle="bold"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/selectDateButton" />
+                app:layout_constraintTop_toBottomOf="@id/startDate" />
 
             <TextView
                 android:id="@+id/endDate"
@@ -187,16 +177,6 @@
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toBottomOf="@id/endDateLabel" />
 
-            <Button
-                android:id="@+id/selectEndDateButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="16dp"
-                android:layout_marginTop="8dp"
-                android:text="Выбрать дату"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/endDate" />
-
             <!-- Repeat Section -->
             <TextView
                 android:id="@+id/repeatFrequency"
@@ -207,7 +187,7 @@
                 android:text="Повторить:"
                 android:textColor="@color/white"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/selectEndDateButton" />
+                app:layout_constraintTop_toBottomOf="@id/endDate" />
 
             <RadioGroup
                 android:id="@+id/repeatRadioGroup"
@@ -343,13 +323,20 @@
         </androidx.constraintlayout.widget.ConstraintLayout>
     </ScrollView>
 
-
-    <Button
+    <!-- Кнопка "Сохранить" -->
+    <androidx.appcompat.widget.AppCompatButton
         android:id="@+id/saveButton"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
         android:layout_margin="16dp"
+        android:background="@drawable/button_gradient"
+        android:elevation="4dp"
+        android:fontFamily="sans-serif-medium"
+        android:stateListAnimator="@null"
         android:text="Сохранить"
+        android:textAllCaps="false"
+        android:textColor="@color/white"
+        android:textSize="16sp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent" />

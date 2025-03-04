@@ -9,9 +9,11 @@ import android.net.Uri
 import android.os.Bundle
 import android.util.Base64
 import android.util.Log
+import android.view.animation.AnimationUtils
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -19,9 +21,13 @@ import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
+import org.json.JSONException
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.io.IOException
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlin.math.min
 
 class Profile : AppCompatActivity() {
@@ -109,7 +115,7 @@ class Profile : AppCompatActivity() {
             )
             .build()
         val request = Request.Builder()
-            .url("http://10.21.43.221:5000/api/user/uploadProfilePicture")
+            .url("http://${Config.IP_ADDRESS}:5000/api/user/uploadProfilePicture")
             .post(requestBody)
             .build()
         OkHttpClient().newCall(request).enqueue(object : Callback {
@@ -136,7 +142,7 @@ class Profile : AppCompatActivity() {
     }
 
     private fun loadProfileImage(userId: Int) {
-        val url = "http://10.21.43.221:5000/api/user/getProfilePicture?userId=$userId"
+        val url = "http://${Config.IP_ADDRESS}/api/user/getProfilePicture?userId=$userId"
         val request = Request.Builder().url(url).get().build()
 
         OkHttpClient().newCall(request).enqueue(object : Callback {
@@ -172,23 +178,42 @@ class Profile : AppCompatActivity() {
     }
 
     private fun fetchHabits(userId: Int) {
-        val url = "http://192.168.61.221:5000/api/habits?userId=$userId"
+        val url = "http://${Config.IP_ADDRESS}:5000/api/Habit/user/$userId?userId=$userId"
         val request = Request.Builder().url(url).get().build()
+
         OkHttpClient().newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
+                // Обработка ошибки сети
+                Log.e("ProfileActivity", "Ошибка сети: ${e.message}")
                 runOnUiThread {
                     Toast.makeText(this@Profile, "Ошибка загрузки привычек", Toast.LENGTH_SHORT).show()
                 }
             }
+
             override fun onResponse(call: Call, response: Response) {
                 if (response.isSuccessful) {
                     response.body?.let { responseBody ->
-                        val jsonResponse = JSONArray(responseBody.string())
-                        runOnUiThread {
-                            displayHabits(jsonResponse)
+                        try {
+                            // Парсим JSON-ответ
+                            val jsonResponse = JSONArray(responseBody.string())
+                            Log.d("ProfileActivity", "Получены привычки: $jsonResponse")
+
+                            // Отображаем привычки на UI
+                            runOnUiThread {
+                                displayHabits(jsonResponse)
+                            }
+                        } catch (e: JSONException) {
+                            // Обработка ошибки парсинга JSON
+                            Log.e("ProfileActivity", "Ошибка парсинга JSON: ${e.message}")
+                            runOnUiThread {
+                                Toast.makeText(this@Profile, "Ошибка обработки данных", Toast.LENGTH_SHORT).show()
+                            }
                         }
                     }
                 } else {
+                    // Обработка ошибки сервера
+                    val errorBody = response.body?.string() ?: "Пустое тело ответа"
+                    Log.e("ProfileActivity", "Ошибка сервера: ${response.code} ${response.message}, тело: $errorBody")
                     runOnUiThread {
                         Toast.makeText(this@Profile, "Не удалось загрузить привычки", Toast.LENGTH_SHORT).show()
                     }
@@ -200,14 +225,199 @@ class Profile : AppCompatActivity() {
     private fun displayHabits(habitsArray: JSONArray) {
         val habitsContainer = findViewById<LinearLayout>(R.id.habitsContainer)
         habitsContainer.removeAllViews()
+
+        if (habitsArray.length() == 0) {
+            // Если привычек нет, покажем сообщение
+            val noHabitsText = TextView(this).apply {
+                text = "Привычек пока нет. Добавьте первую!"
+                textSize = 16f
+                textAlignment = TextView.TEXT_ALIGNMENT_CENTER
+                setPadding(0, 32, 0, 32)
+            }
+            habitsContainer.addView(noHabitsText)
+            return
+        }
+
         for (i in 0 until habitsArray.length()) {
             val habit = habitsArray.getJSONObject(i)
-            val habitName = habit.getString("name")
-            val habitDescription = habit.getString("description")
+            val habitId = habit.optInt("id", -1)
+            val habitName = habit.optString("name", "Без названия")
+            val habitDescription = habit.optString("description", "Нет описания")
+
+            // Создаем карточку привычки
             val habitCard = layoutInflater.inflate(R.layout.habit_item, habitsContainer, false)
+
+            // Устанавливаем данные
             habitCard.findViewById<TextView>(R.id.habitName).text = habitName
             habitCard.findViewById<TextView>(R.id.habitDescription).text = habitDescription
+
+            // Обработка нажатия на кнопку "Выполнено"
+            val completeButton = habitCard.findViewById<Button>(R.id.completeButton)
+            completeButton.setOnClickListener {
+                if (habitId != -1) {
+                    markHabitAsCompleted(habitId)
+                } else {
+                    Toast.makeText(this, "Ошибка: ID привычки не найден", Toast.LENGTH_SHORT).show()
+                }
+            }
+            val deleteButton = habitCard.findViewById<Button>(R.id.deleteButton)
+            deleteButton.setOnClickListener {
+                if (habitId != -1) {
+                    deleteHabit(habitId)
+                } else {
+                    Toast.makeText(this, "Ошибка: ID привычки не найден", Toast.LENGTH_SHORT).show()
+                }
+            }
+
+            // Добавляем анимацию
+            val animation = AnimationUtils.loadAnimation(this, R.anim.fade_in)
+            habitCard.startAnimation(animation)
+
+            // Добавляем карточку в контейнер
             habitsContainer.addView(habitCard)
         }
+    }
+    private fun deleteHabit(habitId: Int) {
+        val url = "http://${Config.IP_ADDRESS}:5000/api/Habit/delete/$habitId"
+        val request = Request.Builder().url(url).delete().build()
+
+        OkHttpClient().newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                Log.e("ProfileActivity", "Ошибка сети: ${e.message}")
+                runOnUiThread {
+                    Toast.makeText(this@Profile, "Ошибка сети", Toast.LENGTH_SHORT).show()
+                }
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                if (response.isSuccessful) {
+                    runOnUiThread {
+                        Toast.makeText(this@Profile, "Привычка удалена!", Toast.LENGTH_SHORT).show()
+                        // Обновляем список привычек
+                        fetchHabits(GlobalData.userId)
+                    }
+                } else {
+                    val errorBody = response.body?.string() ?: "Пустое тело ответа"
+                    Log.e("ProfileActivity", "Ошибка сервера: ${response.code} ${response.message}, тело: $errorBody")
+                    runOnUiThread {
+                        Toast.makeText(this@Profile, "Ошибка при удалении привычки", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        })
+    }
+    private fun markHabitAsCompleted(habitId: Int) {
+        val url = "http://${Config.IP_ADDRESS}:5000/api/Habit/complete/$habitId"
+        val requestBody = JSONObject().apply {
+            put("userId", GlobalData.userId)
+            put("date", SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date()))
+            put("isCompleted", true)
+            put("notes", "Привычка выполнена")
+        }.toString().toRequestBody("application/json; charset=utf-8".toMediaTypeOrNull())
+
+        val request = Request.Builder().url(url).post(requestBody).build()
+
+        OkHttpClient().newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                Log.e("ProfileActivity", "Ошибка сети: ${e.message}")
+                runOnUiThread {
+                    Toast.makeText(this@Profile, "Ошибка сети", Toast.LENGTH_SHORT).show()
+                }
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                if (response.isSuccessful) {
+                    runOnUiThread {
+                        Toast.makeText(this@Profile, "Привычка выполнена!", Toast.LENGTH_SHORT).show()
+                        // Обновляем данные пользователя (опыт и уровень)
+                        fetchUserData(GlobalData.userId)
+                        // Обновляем прогресс привычки
+                        fetchHabitProgress(habitId)
+                    }
+                } else {
+                    val errorBody = response.body?.string() ?: "Пустое тело ответа"
+                    Log.e("ProfileActivity", "Ошибка сервера: ${response.code} ${response.message}, тело: $errorBody")
+                    runOnUiThread {
+                        Toast.makeText(this@Profile, "Ошибка при отметке выполнения", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        })
+    }
+    private fun fetchHabitProgress(habitId: Int) {
+        val url = "http://${Config.IP_ADDRESS}:5000/api/HabitDiary/habit/$habitId"
+        val request = Request.Builder().url(url).get().build()
+
+        OkHttpClient().newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                Log.e("ProfileActivity", "Ошибка сети: ${e.message}")
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                if (response.isSuccessful) {
+                    response.body?.let { responseBody ->
+                        try {
+                            val jsonResponse = JSONArray(responseBody.string())
+                            val completedDays = jsonResponse.length() // Количество выполненных дней
+                            val totalDays = 30 // Например, за последние 30 дней
+                            val progress = (completedDays.toFloat() / totalDays) * 100
+
+                            runOnUiThread {
+                                // Обновляем прогресс на UI
+                                updateHabitProgress(habitId, progress)
+                            }
+                        } catch (e: JSONException) {
+                            Log.e("ProfileActivity", "Ошибка парсинга JSON: ${e.message}")
+                        }
+                    }
+                } else {
+                    Log.e("ProfileActivity", "Ошибка сервера: ${response.code} ${response.message}")
+                }
+            }
+        })
+    }
+    private fun updateHabitProgress(habitId: Int, progress: Float) {
+        val habitsContainer = findViewById<LinearLayout>(R.id.habitsContainer)
+        for (i in 0 until habitsContainer.childCount) {
+            val habitCard = habitsContainer.getChildAt(i)
+            val habitIdInCard = habitCard.tag as? Int ?: continue
+
+            if (habitIdInCard == habitId) {
+                val progressBar = habitCard.findViewById<ProgressBar>(R.id.progressBar)
+                progressBar?.progress = progress.toInt()
+                break
+            }
+        }
+    }
+    private fun fetchUserData(userId: Int) {
+        val url = "http://${Config.IP_ADDRESS}:5000/api/user/$userId"
+        val request = Request.Builder().url(url).get().build()
+
+        OkHttpClient().newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                Log.e("ProfileActivity", "Ошибка сети: ${e.message}")
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                if (response.isSuccessful) {
+                    response.body?.let { responseBody ->
+                        try {
+                            val jsonResponse = JSONObject(responseBody.string())
+                            val level = jsonResponse.optInt("level", 1)
+                            val experience = jsonResponse.optInt("experience", 0)
+
+                            runOnUiThread {
+                                findViewById<TextView>(R.id.levelTextView).text = "Уровень: $level"
+                                // Можно добавить отображение опыта, если нужно
+                            }
+                        } catch (e: JSONException) {
+                            Log.e("ProfileActivity", "Ошибка парсинга JSON: ${e.message}")
+                        }
+                    }
+                } else {
+                    Log.e("ProfileActivity", "Ошибка сервера: ${response.code} ${response.message}")
+                }
+            }
+        })
     }
 }

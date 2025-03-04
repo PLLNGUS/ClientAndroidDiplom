@@ -16,10 +16,16 @@ import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
+import android.view.MotionEvent
+import android.view.View
+import android.view.animation.Animation
+import android.view.animation.AnimationUtils
 
 class EnterPage : AppCompatActivity() {
 
     private lateinit var apiService: ApiService
+    private lateinit var scaleDownAnimation: Animation
+    private lateinit var scaleUpAnimation: Animation
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -29,6 +35,37 @@ class EnterPage : AppCompatActivity() {
         val passwordEditText = findViewById<EditText>(R.id.passwordEditText)
         val loginButton = findViewById<Button>(R.id.loginButton)
         val registerTextView = findViewById<TextView>(R.id.registerTextView)
+
+        // Загружаем анимации
+        scaleDownAnimation = AnimationUtils.loadAnimation(this, R.anim.scale_down)
+        scaleUpAnimation = AnimationUtils.loadAnimation(this, R.anim.scale_up)
+
+        // Назначаем анимацию для кнопки входа
+        loginButton.setOnTouchListener { view, event ->
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    view.startAnimation(scaleDownAnimation)
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    view.startAnimation(scaleUpAnimation)
+                }
+            }
+            false
+        }
+
+        // Назначаем анимацию для текстового поля "Регистрация"
+        registerTextView.setOnTouchListener { view, event ->
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    view.startAnimation(scaleDownAnimation)
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    view.startAnimation(scaleUpAnimation)
+                }
+            }
+            false
+        }
+
         setupRetrofit()
 
         loginButton.setOnClickListener {
@@ -47,6 +84,7 @@ class EnterPage : AppCompatActivity() {
             startActivity(intent)
         }
     }
+
     private fun setupRetrofit() {
         val loggingInterceptor = HttpLoggingInterceptor().apply {
             level = HttpLoggingInterceptor.Level.BODY
@@ -58,7 +96,7 @@ class EnterPage : AppCompatActivity() {
             .readTimeout(10, TimeUnit.SECONDS)
             .build()
         val retrofit = Retrofit.Builder()
-            .baseUrl("http://10.21.43.221:5000/")
+            .baseUrl("http://${Config.IP_ADDRESS}:5000/")
             .client(client)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
@@ -94,3 +132,4 @@ class EnterPage : AppCompatActivity() {
         })
     }
 }
+

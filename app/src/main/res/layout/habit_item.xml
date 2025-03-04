@@ -1,34 +1,90 @@
-<?xml version="1.0" encoding="utf-8"?>
 <androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     app:cardCornerRadius="16dp"
     app:cardElevation="8dp"
-    android:layout_margin="8dp">
+    android:layout_margin="8dp"
+    android:background="?attr/selectableItemBackground">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="16dp">
+        android:padding="16dp"
+        android:background="@drawable/card_background">
+
 
         <TextView
             android:id="@+id/habitName"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Название привычки"
             android:textSize="18sp"
             android:textStyle="bold"
-            android:textColor="@android:color/black" />
+            android:textColor="@android:color/black"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:paddingBottom="4dp"/>
+
 
         <TextView
             android:id="@+id/habitDescription"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Описание привычки"
             android:textSize="14sp"
             android:textColor="@android:color/darker_gray"
-            android:layout_marginTop="4dp"/>
+            android:ellipsize="end"
+            android:maxLines="2"
+            android:paddingBottom="8dp"/>
+
+
+        <ProgressBar
+            android:id="@+id/progressBar"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="8dp"
+            android:layout_marginTop="8dp"
+            android:progress="50"
+            android:max="100"
+            android:progressTint="@color/progress_green"
+            android:progressBackgroundTint="@color/progress_background"
+            android:indeterminate="false"/>
+
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="12dp"
+            android:gravity="end"
+            android:paddingTop="8dp">
+
+            <!-- Кнопка "Удалить" -->
+            <Button
+                android:id="@+id/deleteButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Удалить"
+                android:background="@drawable/button_gradient_red"
+                android:textColor="@color/white"
+                android:textAllCaps="false"
+                android:layout_marginEnd="8dp"
+                android:paddingHorizontal="16dp"
+                android:paddingVertical="8dp"/>
+
+            <!-- Кнопка "Выполнено" -->
+            <Button
+                android:id="@+id/completeButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Выполнено"
+                android:background="@drawable/button_gradient"
+                android:textColor="@color/white"
+                android:textAllCaps="false"
+                android:paddingHorizontal="16dp"
+                android:paddingVertical="8dp"/>
+        </LinearLayout>
     </LinearLayout>
 </androidx.cardview.widget.CardView>

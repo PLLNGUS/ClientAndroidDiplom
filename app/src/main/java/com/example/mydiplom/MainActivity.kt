@@ -10,6 +10,11 @@ import androidx.appcompat.app.AppCompatActivity
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Call
+import android.view.MotionEvent
+import android.view.View
+import android.view.animation.Animation
+import android.view.animation.AnimationUtils
+
 import retrofit2.Callback
 import retrofit2.Response
 import retrofit2.Retrofit
@@ -18,6 +23,8 @@ import java.util.concurrent.TimeUnit
 
 class MainActivity : AppCompatActivity() {
     private lateinit var apiService: ApiService
+    private lateinit var scaleDownAnimation: Animation
+    private lateinit var scaleUpAnimation: Animation
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -28,6 +35,36 @@ class MainActivity : AppCompatActivity() {
         val passwordText = findViewById<EditText>(R.id.passwordtext)
         val registerButton = findViewById<Button>(R.id.registerButton)
         val loginButton = findViewById<Button>(R.id.loginPageButton)
+
+        // Загружаем анимации
+        scaleDownAnimation = AnimationUtils.loadAnimation(this, R.anim.scale_down)
+        scaleUpAnimation = AnimationUtils.loadAnimation(this, R.anim.scale_up)
+
+        // Назначаем анимацию для кнопки регистрации
+        registerButton.setOnTouchListener { view, event ->
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    view.startAnimation(scaleDownAnimation)
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    view.startAnimation(scaleUpAnimation)
+                }
+            }
+            false
+        }
+
+        // Назначаем анимацию для кнопки перехода на страницу входа
+        loginButton.setOnTouchListener { view, event ->
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    view.startAnimation(scaleDownAnimation)
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    view.startAnimation(scaleUpAnimation)
+                }
+            }
+            false
+        }
 
         setupRetrofit()
 
@@ -62,7 +99,7 @@ class MainActivity : AppCompatActivity() {
             .build()
 
         val retrofit = Retrofit.Builder()
-            .baseUrl("http://10.21.43.221:5000/")
+            .baseUrl("http://${Config.IP_ADDRESS}:5000/")
             .client(client)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
@@ -94,9 +131,7 @@ class MainActivity : AppCompatActivity() {
                 } else {
                     Log.e("HTTP", "Ошибка регистрации: ${response.code()}")
                 }
-
-
-        }
+            }
 
             override fun onFailure(call: Call<LoginResponse>, t: Throwable) {
                 Log.e("HTTP", "Ошибка запроса: ${t.message}")

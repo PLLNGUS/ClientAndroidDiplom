@@ -30,7 +30,7 @@ interface ApiService {
     @POST("api/auth/login")
     fun loginUser(@Body user: User): Call<LoginResponse>
     @POST("api/habit/add")
-    fun addHabit(@Body habit: Habit): Call<Void>
+    fun addHabit(@Body habit: Habit): Call<HabitResponse>
 
     @GET("api/habit/user/{userId}")
     fun getUserHabits(@Path("userId") userId: Int): Call<List<Habit>>

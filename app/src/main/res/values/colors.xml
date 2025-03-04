@@ -12,6 +12,12 @@
     <color name="blue">#00BFFF</color>
     <color name="purple">#9370DB</color>
     <color name="lightGray">#282828</color>
+    <color name="progress_green">#4CAF50</color>
+    <color name="progress_background">#E0E0E0</color>
+    <color name="gradient_start">#4CAF50</color>
+    <color name="gradient_end">#388E3C</color>
 
+    <color name="gradient_red_start">#F44336</color>
+    <color name="gradient_red_end">#D32F2F</color>
 
 </resources>
