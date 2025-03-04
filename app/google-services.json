@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "843677144471",
+    "firebase_url": "https://habitchecker-ebbe1-default-rtdb.firebaseio.com",
+    "project_id": "habitchecker-ebbe1",
+    "storage_bucket": "habitchecker-ebbe1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:843677144471:android:5e100b95c3504eb98da0d2",
+        "android_client_info": {
+          "package_name": "com.example.mydiplom"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAc_Ge7OvQLwNULN1UulDSQmZ4ePeFIo1M"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
