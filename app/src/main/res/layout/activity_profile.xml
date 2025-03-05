@@ -6,7 +6,7 @@
     android:background="@color/lightGray"
     android:padding="16dp">
 
-    <!-- Верхняя секция с профилем -->
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -21,11 +21,13 @@
             <!-- Аватарка -->
             <ImageView
                 android:id="@+id/profileImageView"
-                android:layout_width="150dp"
+                android:layout_width="160dp"
                 android:layout_height="wrap_content"
                 android:adjustViewBounds="true"
+                android:background="@drawable/gradient_border_ava"
                 android:contentDescription="Иконка камеры"
                 android:scaleType="centerCrop"
+                android:padding="10dp"
                 android:layout_marginRight="50dp"
                 android:src="@drawable/default_profile" />
 

@@ -11,4 +11,12 @@ object RetrofitClient {
             .build()
             .create(ApiService::class.java)
     }
+
+    val imgBBInstance: ImgBBApi by lazy {
+        Retrofit.Builder()
+            .baseUrl("https://api.imgbb.com/")
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+            .create(ImgBBApi::class.java)
+    }
 }

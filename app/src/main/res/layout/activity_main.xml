@@ -108,20 +108,14 @@
             android:textColor="@color/white"
             android:textSize="16sp" />
 
-        <!-- Переход на страницу логина -->
-        <androidx.appcompat.widget.AppCompatButton
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/loginPageButton"
             android:layout_width="match_parent"
-            android:layout_height="48dp"
+            android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:background="@drawable/button_gradient"
-            android:backgroundTint="@null"
-            android:elevation="4dp"
-            android:fontFamily="sans-serif-medium"
-            android:stateListAnimator="@null"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
             android:text="Go to Login"
-            android:textAllCaps="false"
             android:textColor="@color/white"
-            android:textSize="16sp" />
+            android:textSize="14sp" />
     </LinearLayout>
 </RelativeLayout>

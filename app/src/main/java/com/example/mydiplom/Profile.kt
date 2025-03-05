@@ -5,10 +5,12 @@ import android.app.Activity
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Paint
 import android.net.Uri
 import android.os.Bundle
-import android.util.Base64
 import android.util.Log
+import android.view.MotionEvent
+import android.view.View
 import android.view.animation.AnimationUtils
 import android.widget.Button
 import android.widget.ImageView
@@ -17,13 +19,21 @@ import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
+import com.bumptech.glide.Glide
+import com.bumptech.glide.load.engine.DiskCacheStrategy
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
-import java.io.ByteArrayOutputStream
+import java.io.File
+import java.io.FileOutputStream
 import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -31,18 +41,24 @@ import java.util.Locale
 import kotlin.math.min
 
 class Profile : AppCompatActivity() {
+
     private lateinit var profileImageView: ImageView
-    private val PICK_IMAGE_REQUEST = 1
     private var imageUri: Uri? = null
+
+    companion object {
+        private const val PICK_IMAGE_REQUEST = 1
+        private const val ADD_HABIT_REQUEST_CODE = 1001
+        private const val IMG_BB_API_KEY = "3c0ba83caff39dffe95431ebaca86d9e"
+    }
 
     @SuppressLint("MissingInflatedId")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_profile)
+
         profileImageView = findViewById(R.id.profileImageView)
-        profileImageView.setOnClickListener {
-            openGallery()
-        }
+        profileImageView.setOnClickListener { openGallery() }
+
         val userId = GlobalData.userId
         val nickname = intent.getStringExtra("nickname")
         val level = intent.getIntExtra("level", 1)
@@ -52,15 +68,17 @@ class Profile : AppCompatActivity() {
             finish()
             return
         }
+
         findViewById<TextView>(R.id.nicknameTextView).text = nickname
         findViewById<TextView>(R.id.levelTextView).text = "Уровень: $level"
+
         loadProfileImage(userId)
         fetchHabits(userId)
 
         findViewById<Button>(R.id.centerPlusButton).setOnClickListener {
             val intent = Intent(this, AddHabit::class.java)
             intent.putExtra("USER_ID", userId)
-            startActivity(intent)
+            startActivityForResult(intent, ADD_HABIT_REQUEST_CODE)
         }
     }
 
@@ -69,9 +87,18 @@ class Profile : AppCompatActivity() {
         intent.type = "image/*"
         startActivityForResult(intent, PICK_IMAGE_REQUEST)
     }
+
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == PICK_IMAGE_REQUEST && resultCode == Activity.RESULT_OK && data != null) {
+
+        when (requestCode) {
+            PICK_IMAGE_REQUEST -> handleImagePickResult(resultCode, data)
+            ADD_HABIT_REQUEST_CODE -> handleAddHabitResult(resultCode)
+        }
+    }
+
+    private fun handleImagePickResult(resultCode: Int, data: Intent?) {
+        if (resultCode == Activity.RESULT_OK && data != null) {
             imageUri = data.data
             imageUri?.let { uri ->
                 try {
@@ -82,19 +109,31 @@ class Profile : AppCompatActivity() {
                     if (bitmap != null) {
                         val croppedBitmap = cropToSquare(bitmap)
                         profileImageView.setImageBitmap(croppedBitmap)
-                        uploadImageToServer(GlobalData.userId, croppedBitmap)
-                    } else {
-                        runOnUiThread {
-                            Toast.makeText(this, "Ошибка: неподдерживаемый формат изображения", Toast.LENGTH_SHORT).show()
+
+                        val jpegFile = File(cacheDir, "temp_image.jpg")
+                        FileOutputStream(jpegFile).use { fos ->
+                            croppedBitmap.compress(Bitmap.CompressFormat.JPEG, 100, fos)
                         }
+
+                        uploadImageToImgBB(GlobalData.userId, jpegFile)
+                    } else {
+                        showToast("Ошибка: неподдерживаемый формат изображения")
                     }
                 } catch (e: Exception) {
                     e.printStackTrace()
-                    Toast.makeText(this, "Ошибка загрузки фото", Toast.LENGTH_SHORT).show()
+                    showToast("Ошибка загрузки фото")
                 }
             }
         }
     }
+
+    private fun handleAddHabitResult(resultCode: Int) {
+        if (resultCode == Activity.RESULT_OK) {
+            fetchHabits(GlobalData.userId)
+            showToast("Привычка успешно добавлена!")
+        }
+    }
+
     private fun cropToSquare(bitmap: Bitmap): Bitmap {
         val size = min(bitmap.width, bitmap.height)
         val xOffset = (bitmap.width - size) / 2
@@ -102,76 +141,89 @@ class Profile : AppCompatActivity() {
         return Bitmap.createBitmap(bitmap, xOffset, yOffset, size, size)
     }
 
-    private fun uploadImageToServer(userId: Int, bitmap: Bitmap) {
-        val byteArrayOutputStream = ByteArrayOutputStream()
-        bitmap.compress(Bitmap.CompressFormat.JPEG, 90, byteArrayOutputStream)
-        val imageBytes = byteArrayOutputStream.toByteArray()
-        val requestBody = MultipartBody.Builder()
-            .setType(MultipartBody.FORM)
-            .addFormDataPart("userId", userId.toString())
-            .addFormDataPart(
-                "image", "profile.jpg",
-                imageBytes.toRequestBody("image/jpeg".toMediaTypeOrNull())
-            )
-            .build()
-        val request = Request.Builder()
-            .url("http://${Config.IP_ADDRESS}:5000/api/user/uploadProfilePicture")
-            .post(requestBody)
-            .build()
-        OkHttpClient().newCall(request).enqueue(object : Callback {
-            override fun onFailure(call: Call, e: IOException) {
-                Log.e("ProfileActivity", "Image upload failed", e)
-                runOnUiThread {
-                    Toast.makeText(this@Profile, "Ошибка сети", Toast.LENGTH_SHORT).show()
-                }
-            }
-            override fun onResponse(call: Call, response: Response) {
+    private fun uploadImageToImgBB(userId: Int, imageFile: File) {
+        val requestBody = imageFile.asRequestBody("image/jpeg".toMediaTypeOrNull())
+        val imagePart = MultipartBody.Part.createFormData("image", imageFile.name, requestBody)
+
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val response = RetrofitClient.imgBBInstance.uploadImage(imagePart, IMG_BB_API_KEY)
                 if (response.isSuccessful) {
-                    Log.d("ProfileActivity", "Image uploaded successfully")
-                    runOnUiThread {
-                        Toast.makeText(this@Profile, "Фото загружено!", Toast.LENGTH_SHORT).show()
+                    val imageUrl = response.body()?.data?.url
+                    if (imageUrl != null) {
+                        updateProfilePicturePath(userId, imageUrl)
                     }
                 } else {
-                    Log.e("ProfileActivity", "Server error: ${response.code}")
-                    runOnUiThread {
-                        Toast.makeText(this@Profile, "Ошибка сервера", Toast.LENGTH_SHORT).show()
-                    }
+                    showToast("Ошибка загрузки изображения")
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                showToast("Ошибка сети")
+            }
+        }
+    }
+
+    private fun updateProfilePicturePath(userId: Int, imageUrl: String) {
+        val url = "http://${Config.IP_ADDRESS}:5000/api/user/uploadProfilePicture"
+        val jsonBody = """
+            {
+                "userId": $userId,
+                "imagePath": "$imageUrl"
+            }
+        """.trimIndent()
+
+        val requestBody = jsonBody.toRequestBody("application/json; charset=utf-8".toMediaTypeOrNull())
+        val request = Request.Builder().url(url).post(requestBody).build()
+
+        OkHttpClient().newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                Log.e("ProfileActivity", "Ошибка обновления пути изображения", e)
+                showToast("Ошибка сети")
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                if (response.isSuccessful) {
+                    showToast("Фото сохранено!")
+                } else {
+                    val errorBody = response.body?.string() ?: "Пустое тело ответа"
+                    Log.e("ProfileActivity", "Ошибка сервера: ${response.code}, тело: $errorBody")
+                    showToast("Ошибка сервера")
                 }
             }
         })
     }
 
     private fun loadProfileImage(userId: Int) {
-        val url = "http://${Config.IP_ADDRESS}/api/user/getProfilePicture?userId=$userId"
+        val url = "http://${Config.IP_ADDRESS}:5000/api/user/getProfilePicturePath?userId=$userId"
         val request = Request.Builder().url(url).get().build()
 
         OkHttpClient().newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
-                runOnUiThread {
-                    Toast.makeText(this@Profile, "Ошибка загрузки фото", Toast.LENGTH_SHORT).show()
-                }
+                showToast("Ошибка загрузки фото")
             }
+
             override fun onResponse(call: Call, response: Response) {
                 if (response.isSuccessful) {
                     response.body?.let { responseBody ->
                         val jsonResponse = JSONObject(responseBody.string())
-                        val base64Image = jsonResponse.optString("profilePicture")
-                        if (base64Image.isNotEmpty()) {
-                            val imageBytes = Base64.decode(base64Image, Base64.DEFAULT)
-                            val bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
+                        val imageUrl = jsonResponse.optString("profilePicturePath")
+                        Log.d("ProfileActivity", "Получен URL фотографии: $imageUrl")
+
+                        if (imageUrl.isNotEmpty()) {
                             runOnUiThread {
-                                profileImageView.setImageBitmap(bitmap)
+                                Glide.with(this@Profile)
+                                    .load(imageUrl)
+                                    .diskCacheStrategy(DiskCacheStrategy.NONE)
+                                    .skipMemoryCache(true)
+                                    .into(profileImageView)
+                                startFadeInAnimation(profileImageView)
                             }
                         } else {
-                            runOnUiThread {
-                                Toast.makeText(this@Profile, "Фото профиля отсутствует", Toast.LENGTH_SHORT).show()
-                            }
+                            showToast("Фото профиля отсутствует")
                         }
                     }
                 } else {
-                    runOnUiThread {
-                        Toast.makeText(this@Profile, "Не удалось загрузить фото", Toast.LENGTH_SHORT).show()
-                    }
+                    showToast("Не удалось загрузить фото")
                 }
             }
         })
@@ -183,40 +235,28 @@ class Profile : AppCompatActivity() {
 
         OkHttpClient().newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
-                // Обработка ошибки сети
                 Log.e("ProfileActivity", "Ошибка сети: ${e.message}")
-                runOnUiThread {
-                    Toast.makeText(this@Profile, "Ошибка загрузки привычек", Toast.LENGTH_SHORT).show()
-                }
+                showToast("Ошибка загрузки привычек")
             }
 
             override fun onResponse(call: Call, response: Response) {
                 if (response.isSuccessful) {
                     response.body?.let { responseBody ->
                         try {
-                            // Парсим JSON-ответ
                             val jsonResponse = JSONArray(responseBody.string())
                             Log.d("ProfileActivity", "Получены привычки: $jsonResponse")
-
-                            // Отображаем привычки на UI
                             runOnUiThread {
                                 displayHabits(jsonResponse)
                             }
                         } catch (e: JSONException) {
-                            // Обработка ошибки парсинга JSON
                             Log.e("ProfileActivity", "Ошибка парсинга JSON: ${e.message}")
-                            runOnUiThread {
-                                Toast.makeText(this@Profile, "Ошибка обработки данных", Toast.LENGTH_SHORT).show()
-                            }
+                            showToast("Ошибка обработки данных")
                         }
                     }
                 } else {
-                    // Обработка ошибки сервера
                     val errorBody = response.body?.string() ?: "Пустое тело ответа"
                     Log.e("ProfileActivity", "Ошибка сервера: ${response.code} ${response.message}, тело: $errorBody")
-                    runOnUiThread {
-                        Toast.makeText(this@Profile, "Не удалось загрузить привычки", Toast.LENGTH_SHORT).show()
-                    }
+                    showToast("Не удалось загрузить привычки")
                 }
             }
         })
@@ -227,7 +267,6 @@ class Profile : AppCompatActivity() {
         habitsContainer.removeAllViews()
 
         if (habitsArray.length() == 0) {
-            // Если привычек нет, покажем сообщение
             val noHabitsText = TextView(this).apply {
                 text = "Привычек пока нет. Добавьте первую!"
                 textSize = 16f
@@ -244,39 +283,59 @@ class Profile : AppCompatActivity() {
             val habitName = habit.optString("name", "Без названия")
             val habitDescription = habit.optString("description", "Нет описания")
 
-            // Создаем карточку привычки
             val habitCard = layoutInflater.inflate(R.layout.habit_item, habitsContainer, false)
 
-            // Устанавливаем данные
             habitCard.findViewById<TextView>(R.id.habitName).text = habitName
             habitCard.findViewById<TextView>(R.id.habitDescription).text = habitDescription
 
-            // Обработка нажатия на кнопку "Выполнено"
             val completeButton = habitCard.findViewById<Button>(R.id.completeButton)
+            val deleteButton = habitCard.findViewById<Button>(R.id.deleteButton)
+
+            completeButton.setOnTouchListener { view, event ->
+                when (event.action) {
+                    MotionEvent.ACTION_DOWN -> {
+                        view.startAnimation(AnimationUtils.loadAnimation(this, R.anim.scale_down))
+                    }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                        view.startAnimation(AnimationUtils.loadAnimation(this, R.anim.scale_up))
+                    }
+                }
+                false
+            }
+
+            deleteButton.setOnTouchListener { view, event ->
+                when (event.action) {
+                    MotionEvent.ACTION_DOWN -> {
+                        view.startAnimation(AnimationUtils.loadAnimation(this, R.anim.scale_down))
+                    }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                        view.startAnimation(AnimationUtils.loadAnimation(this, R.anim.scale_up))
+                    }
+                }
+                false
+            }
             completeButton.setOnClickListener {
                 if (habitId != -1) {
-                    markHabitAsCompleted(habitId)
+                    markHabitAsCompleted(habitId, habitCard)
                 } else {
-                    Toast.makeText(this, "Ошибка: ID привычки не найден", Toast.LENGTH_SHORT).show()
+                    showToast("Ошибка: ID привычки не найден")
                 }
             }
-            val deleteButton = habitCard.findViewById<Button>(R.id.deleteButton)
+
+
             deleteButton.setOnClickListener {
                 if (habitId != -1) {
                     deleteHabit(habitId)
                 } else {
-                    Toast.makeText(this, "Ошибка: ID привычки не найден", Toast.LENGTH_SHORT).show()
+                    showToast("Ошибка: ID привычки не найден")
                 }
             }
 
-            // Добавляем анимацию
-            val animation = AnimationUtils.loadAnimation(this, R.anim.fade_in)
-            habitCard.startAnimation(animation)
-
-            // Добавляем карточку в контейнер
+            startFadeInAnimation(habitCard)
             habitsContainer.addView(habitCard)
         }
     }
+
     private fun deleteHabit(habitId: Int) {
         val url = "http://${Config.IP_ADDRESS}:5000/api/Habit/delete/$habitId"
         val request = Request.Builder().url(url).delete().build()
@@ -284,66 +343,38 @@ class Profile : AppCompatActivity() {
         OkHttpClient().newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
                 Log.e("ProfileActivity", "Ошибка сети: ${e.message}")
-                runOnUiThread {
-                    Toast.makeText(this@Profile, "Ошибка сети", Toast.LENGTH_SHORT).show()
-                }
+                showToast("Ошибка сети")
             }
 
             override fun onResponse(call: Call, response: Response) {
                 if (response.isSuccessful) {
-                    runOnUiThread {
-                        Toast.makeText(this@Profile, "Привычка удалена!", Toast.LENGTH_SHORT).show()
-                        // Обновляем список привычек
-                        fetchHabits(GlobalData.userId)
-                    }
+                    showToast("Привычка удалена!")
+                    fetchHabits(GlobalData.userId)
                 } else {
                     val errorBody = response.body?.string() ?: "Пустое тело ответа"
                     Log.e("ProfileActivity", "Ошибка сервера: ${response.code} ${response.message}, тело: $errorBody")
-                    runOnUiThread {
-                        Toast.makeText(this@Profile, "Ошибка при удалении привычки", Toast.LENGTH_SHORT).show()
-                    }
+                    showToast("Ошибка при удалении привычки")
                 }
             }
         })
     }
-    private fun markHabitAsCompleted(habitId: Int) {
-        val url = "http://${Config.IP_ADDRESS}:5000/api/Habit/complete/$habitId"
-        val requestBody = JSONObject().apply {
-            put("userId", GlobalData.userId)
-            put("date", SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date()))
-            put("isCompleted", true)
-            put("notes", "Привычка выполнена")
-        }.toString().toRequestBody("application/json; charset=utf-8".toMediaTypeOrNull())
 
-        val request = Request.Builder().url(url).post(requestBody).build()
+    private fun markHabitAsCompleted(habitId: Int, habitCard: View) {
+        // Визуальные изменения
+        habitCard.setBackgroundColor(ContextCompat.getColor(this, R.color.progress_green))
+        habitCard.findViewById<TextView>(R.id.habitName).paintFlags =
+            habitCard.findViewById<TextView>(R.id.habitName).paintFlags or Paint.STRIKE_THRU_TEXT_FLAG
+        habitCard.findViewById<TextView>(R.id.habitDescription).paintFlags =
+            habitCard.findViewById<TextView>(R.id.habitDescription).paintFlags or Paint.STRIKE_THRU_TEXT_FLAG
 
-        OkHttpClient().newCall(request).enqueue(object : Callback {
-            override fun onFailure(call: Call, e: IOException) {
-                Log.e("ProfileActivity", "Ошибка сети: ${e.message}")
-                runOnUiThread {
-                    Toast.makeText(this@Profile, "Ошибка сети", Toast.LENGTH_SHORT).show()
-                }
-            }
+        // Показываем уведомление
+        showToast("Привычка выполнена!")
 
-            override fun onResponse(call: Call, response: Response) {
-                if (response.isSuccessful) {
-                    runOnUiThread {
-                        Toast.makeText(this@Profile, "Привычка выполнена!", Toast.LENGTH_SHORT).show()
-                        // Обновляем данные пользователя (опыт и уровень)
-                        fetchUserData(GlobalData.userId)
-                        // Обновляем прогресс привычки
-                        fetchHabitProgress(habitId)
-                    }
-                } else {
-                    val errorBody = response.body?.string() ?: "Пустое тело ответа"
-                    Log.e("ProfileActivity", "Ошибка сервера: ${response.code} ${response.message}, тело: $errorBody")
-                    runOnUiThread {
-                        Toast.makeText(this@Profile, "Ошибка при отметке выполнения", Toast.LENGTH_SHORT).show()
-                    }
-                }
-            }
-        })
+        // Если хотите, можно добавить анимацию
+        val animation = AnimationUtils.loadAnimation(this, R.anim.fade_in)
+        habitCard.startAnimation(animation)
     }
+
     private fun fetchHabitProgress(habitId: Int) {
         val url = "http://${Config.IP_ADDRESS}:5000/api/HabitDiary/habit/$habitId"
         val request = Request.Builder().url(url).get().build()
@@ -358,12 +389,11 @@ class Profile : AppCompatActivity() {
                     response.body?.let { responseBody ->
                         try {
                             val jsonResponse = JSONArray(responseBody.string())
-                            val completedDays = jsonResponse.length() // Количество выполненных дней
-                            val totalDays = 30 // Например, за последние 30 дней
+                            val completedDays = jsonResponse.length()
+                            val totalDays = 30
                             val progress = (completedDays.toFloat() / totalDays) * 100
 
                             runOnUiThread {
-                                // Обновляем прогресс на UI
                                 updateHabitProgress(habitId, progress)
                             }
                         } catch (e: JSONException) {
@@ -376,6 +406,7 @@ class Profile : AppCompatActivity() {
             }
         })
     }
+
     private fun updateHabitProgress(habitId: Int, progress: Float) {
         val habitsContainer = findViewById<LinearLayout>(R.id.habitsContainer)
         for (i in 0 until habitsContainer.childCount) {
@@ -389,6 +420,7 @@ class Profile : AppCompatActivity() {
             }
         }
     }
+
     private fun fetchUserData(userId: Int) {
         val url = "http://${Config.IP_ADDRESS}:5000/api/user/$userId"
         val request = Request.Builder().url(url).get().build()
@@ -408,7 +440,6 @@ class Profile : AppCompatActivity() {
 
                             runOnUiThread {
                                 findViewById<TextView>(R.id.levelTextView).text = "Уровень: $level"
-                                // Можно добавить отображение опыта, если нужно
                             }
                         } catch (e: JSONException) {
                             Log.e("ProfileActivity", "Ошибка парсинга JSON: ${e.message}")
@@ -419,5 +450,16 @@ class Profile : AppCompatActivity() {
                 }
             }
         })
+    }
+
+    private fun showToast(message: String) {
+        runOnUiThread {
+            Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun startFadeInAnimation(view: android.view.View) {
+        val animation = AnimationUtils.loadAnimation(this, R.anim.fade_in)
+        view.startAnimation(animation)
     }
 }

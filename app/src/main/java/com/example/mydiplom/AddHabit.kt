@@ -1,5 +1,6 @@
 package com.example.mydiplom
 
+import android.app.Activity
 import android.app.DatePickerDialog
 import android.os.Bundle
 import android.util.Log
@@ -7,8 +8,6 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.animation.Animation
 import android.view.animation.AnimationUtils
-
-
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import com.google.gson.Gson
@@ -24,6 +23,7 @@ import java.util.*
 import java.util.concurrent.TimeUnit
 
 class AddHabit : AppCompatActivity() {
+
     private lateinit var scaleDownAnimation: Animation
     private lateinit var scaleUpAnimation: Animation
     private lateinit var habitNameEditText: EditText
@@ -48,54 +48,27 @@ class AddHabit : AppCompatActivity() {
 
     private lateinit var apiService: ApiService
 
+    companion object {
+        private const val DATE_FORMAT_DISPLAY = "dd/MM/yyyy"
+        private const val DATE_FORMAT_API = "yyyy-MM-dd'T'HH:mm:ss'Z'"
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_add_habit)
 
-        habitNameEditText = findViewById(R.id.habitName)
-        habitDescriptionEditText = findViewById(R.id.habitDescription)
-        difficulty1 = findViewById(R.id.difficulty1)
-        difficulty2 = findViewById(R.id.difficulty2)
-        difficulty3 = findViewById(R.id.difficulty3)
-        startDateTextView = findViewById(R.id.startDate)
-        endDateTextView = findViewById(R.id.endDate)
-        repeatRadioGroup = findViewById(R.id.repeatRadioGroup)
-        daysOfWeekLayout = findViewById(R.id.daysOfWeekLayout)
-        mondayCheckBox = findViewById(R.id.mondayCheckBox)
-        tuesdayCheckBox = findViewById(R.id.tuesdayCheckBox)
-        wednesdayCheckBox = findViewById(R.id.wednesdayCheckBox)
-        thursdayCheckBox = findViewById(R.id.thursdayCheckBox)
-        fridayCheckBox = findViewById(R.id.fridayCheckBox)
-        saturdayCheckBox = findViewById(R.id.saturdayCheckBox)
-        sundayCheckBox = findViewById(R.id.sundayCheckBox)
-        reminderSwitch = findViewById(R.id.reminderSwitch)
-        saveButton = findViewById(R.id.saveButton)
-        scaleDownAnimation = AnimationUtils.loadAnimation(this, R.anim.scale_down)
-        scaleUpAnimation = AnimationUtils.loadAnimation(this, R.anim.scale_up)
+        initViews()
+        setupAnimations()
+        setupRetrofit()
 
-        // Применение анимации к кнопке "Сохранить"
-        saveButton.setOnTouchListener { view, event ->
-            when (event.action) {
-                MotionEvent.ACTION_DOWN -> {
-                    view.startAnimation(scaleDownAnimation)
-                }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    view.startAnimation(scaleUpAnimation)
-                }
-            }
-            false
-        }
         val userId = GlobalData.userId
         Log.d("AddHabit", "Received User ID from GlobalData: $userId")
 
         if (userId == -1) {
-            Toast.makeText(this, "Ошибка: ID пользователя не найден", Toast.LENGTH_SHORT).show()
+            showToast("Ошибка: ID пользователя не найден")
             finish()
             return
         }
-
-        // Инициализация Retrofit
-        setupRetrofit()
 
         saveButton.setOnClickListener {
             saveHabit(userId)
@@ -115,16 +88,44 @@ class AddHabit : AppCompatActivity() {
 
         repeatRadioGroup.setOnCheckedChangeListener { _, checkedId ->
             when (checkedId) {
-                R.id.dailyRadioButton -> {
-                    daysOfWeekLayout.visibility = View.GONE
-                }
-                R.id.weeklyRadioButton -> {
-                    daysOfWeekLayout.visibility = View.VISIBLE
-                }
-                R.id.monthlyRadioButton -> {
-                    daysOfWeekLayout.visibility = View.GONE
-                }
+                R.id.dailyRadioButton -> daysOfWeekLayout.visibility = View.GONE
+                R.id.weeklyRadioButton -> daysOfWeekLayout.visibility = View.VISIBLE
+                R.id.monthlyRadioButton -> daysOfWeekLayout.visibility = View.GONE
             }
+        }
+    }
+
+    private fun initViews() {
+        habitNameEditText = findViewById(R.id.habitName)
+        habitDescriptionEditText = findViewById(R.id.habitDescription)
+        difficulty1 = findViewById(R.id.difficulty1)
+        difficulty2 = findViewById(R.id.difficulty2)
+        difficulty3 = findViewById(R.id.difficulty3)
+        startDateTextView = findViewById(R.id.startDate)
+        endDateTextView = findViewById(R.id.endDate)
+        repeatRadioGroup = findViewById(R.id.repeatRadioGroup)
+        daysOfWeekLayout = findViewById(R.id.daysOfWeekLayout)
+        mondayCheckBox = findViewById(R.id.mondayCheckBox)
+        tuesdayCheckBox = findViewById(R.id.tuesdayCheckBox)
+        wednesdayCheckBox = findViewById(R.id.wednesdayCheckBox)
+        thursdayCheckBox = findViewById(R.id.thursdayCheckBox)
+        fridayCheckBox = findViewById(R.id.fridayCheckBox)
+        saturdayCheckBox = findViewById(R.id.saturdayCheckBox)
+        sundayCheckBox = findViewById(R.id.sundayCheckBox)
+        reminderSwitch = findViewById(R.id.reminderSwitch)
+        saveButton = findViewById(R.id.saveButton)
+    }
+
+    private fun setupAnimations() {
+        scaleDownAnimation = AnimationUtils.loadAnimation(this, R.anim.scale_down)
+        scaleUpAnimation = AnimationUtils.loadAnimation(this, R.anim.scale_up)
+
+        saveButton.setOnTouchListener { view, event ->
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> view.startAnimation(scaleDownAnimation)
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> view.startAnimation(scaleUpAnimation)
+            }
+            false
         }
     }
 
@@ -140,7 +141,7 @@ class AddHabit : AppCompatActivity() {
             .build()
 
         val retrofit = Retrofit.Builder()
-            .baseUrl("http://${Config.IP_ADDRESS}:5000/")  // IP-адрес сервера
+            .baseUrl("http://${Config.IP_ADDRESS}:5000/")
             .client(client)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
@@ -160,69 +161,49 @@ class AddHabit : AppCompatActivity() {
         val description = habitDescriptionEditText.text.toString()
         val difficulty = selectedDifficulty
 
-        // Проверка на пустые поля
         if (name.isBlank() || description.isBlank()) {
-            Toast.makeText(this, "Пожалуйста, заполните все поля", Toast.LENGTH_SHORT).show()
+            showToast("Пожалуйста, заполните все поля")
             return
         }
 
-        // Проверка даты начала
         val startDateStr = startDateTextView.text.toString().replace("Дата начала: ", "")
         if (startDateStr.isBlank()) {
-            Toast.makeText(this, "Пожалуйста, выберите дату начала", Toast.LENGTH_SHORT).show()
+            showToast("Пожалуйста, выберите дату начала")
             return
         }
 
-        // Проверка даты окончания (если выбрана)
         val endDateStr = endDateTextView.text.toString().replace("Дата окончания: ", "")
         if (endDateStr != "не выбрана" && endDateStr.isBlank()) {
-            Toast.makeText(this, "Пожалуйста, выберите корректную дату окончания", Toast.LENGTH_SHORT).show()
+            showToast("Пожалуйста, выберите корректную дату окончания")
             return
         }
 
-        // Преобразование дат
-        val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
-        val startDate: String = try {
-            val date = dateFormat.parse(startDateStr)
-            SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.getDefault()).format(date)
-        } catch (e: Exception) {
-            Log.e("AddHabit", "Invalid start date format", e)
-            Toast.makeText(this, "Некорректный формат даты начала", Toast.LENGTH_SHORT).show()
-            return
-        }
+        val startDate = parseDate(startDateStr, DATE_FORMAT_DISPLAY, DATE_FORMAT_API)
+            ?: return showToast("Некорректный формат даты начала")
 
-        val endDate: String? = if (endDateStr != "не выбрана") {
-            try {
-                val date = dateFormat.parse(endDateStr)
-                SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.getDefault()).format(date)
-            } catch (e: Exception) {
-                Log.e("AddHabit", "Invalid end date format", e)
-                Toast.makeText(this, "Некорректный формат даты окончания", Toast.LENGTH_SHORT).show()
-                return
-            }
+        val endDate = if (endDateStr != "не выбрана") {
+            parseDate(endDateStr, DATE_FORMAT_DISPLAY, DATE_FORMAT_API)
+                ?: return showToast("Некорректный формат даты окончания")
         } else {
             null
         }
 
-        // Проверка интервала повторения
         val repeatInterval = when (repeatRadioGroup.checkedRadioButtonId) {
             R.id.dailyRadioButton -> "Каждый день"
             R.id.weeklyRadioButton -> "Каждую неделю"
             R.id.monthlyRadioButton -> "Каждый месяц"
             else -> {
-                Toast.makeText(this, "Пожалуйста, выберите интервал повторения", Toast.LENGTH_SHORT).show()
+                showToast("Пожалуйста, выберите интервал повторения")
                 return
             }
         }
 
-        // Проверка дней недели (если выбрано "Каждую неделю")
         val daysOfWeek = if (repeatInterval == "Каждую неделю") buildDaysOfWeekString() else ""
         if (repeatInterval == "Каждую неделю" && daysOfWeek.isBlank()) {
-            Toast.makeText(this, "Пожалуйста, выберите хотя бы один день недели", Toast.LENGTH_SHORT).show()
+            showToast("Пожалуйста, выберите хотя бы один день недели")
             return
         }
 
-        // Создание объекта Habit
         val habit = Habit(
             name = name,
             description = description,
@@ -234,13 +215,12 @@ class AddHabit : AppCompatActivity() {
             userId = userId
         )
 
-        // Логирование данных
         Log.d("AddHabit", "Sending Habit: $habit")
         Log.d("AddHabit", "Habit data: ${Gson().toJson(habit)}")
 
-        // Отправка запроса
         addHabit(habit)
     }
+
     private fun buildDaysOfWeekString(): String {
         val days = mutableListOf<String>()
         if (mondayCheckBox.isChecked) days.add("Понедельник")
@@ -267,6 +247,16 @@ class AddHabit : AppCompatActivity() {
         datePickerDialog.show()
     }
 
+    private fun parseDate(dateStr: String, inputFormat: String, outputFormat: String): String? {
+        return try {
+            val date = SimpleDateFormat(inputFormat, Locale.getDefault()).parse(dateStr)
+            SimpleDateFormat(outputFormat, Locale.getDefault()).format(date)
+        } catch (e: Exception) {
+            Log.e("AddHabit", "Invalid date format", e)
+            null
+        }
+    }
+
     private fun addHabit(habit: Habit) {
         apiService.addHabit(habit).enqueue(object : Callback<HabitResponse> {
             override fun onResponse(call: Call<HabitResponse>, response: Response<HabitResponse>) {
@@ -275,11 +265,12 @@ class AddHabit : AppCompatActivity() {
                     Log.d("DEBUG", "Ответ от сервера: $habitResponse")
 
                     if (habitResponse != null) {
-                        Toast.makeText(this@AddHabit, "Привычка добавлена!", Toast.LENGTH_SHORT).show()
+                        showToast("Привычка добавлена!")
+                        setResult(Activity.RESULT_OK)
                         finish()
                     } else {
                         Log.e("DEBUG", "habitResponse оказался null")
-                        Toast.makeText(this@AddHabit, "Ошибка: сервер вернул пустой ответ", Toast.LENGTH_SHORT).show()
+                        showToast("Ошибка: сервер вернул пустой ответ")
                     }
                 } else {
                     val errorMessage = when (response.code()) {
@@ -289,14 +280,18 @@ class AddHabit : AppCompatActivity() {
                         else -> "Ошибка при добавлении привычки: ${response.code()}"
                     }
                     Log.e("HTTP", errorMessage)
-                    Toast.makeText(this@AddHabit, errorMessage, Toast.LENGTH_SHORT).show()
+                    showToast(errorMessage)
                 }
             }
 
             override fun onFailure(call: Call<HabitResponse>, t: Throwable) {
                 Log.e("AddHabit", "Ошибка сети: ${t.message}", t)
-                Toast.makeText(this@AddHabit, "Ошибка сети: ${t.message}", Toast.LENGTH_SHORT).show()
+                showToast("Ошибка сети: ${t.message}")
             }
         })
+    }
+
+    private fun showToast(message: String) {
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
     }
 }

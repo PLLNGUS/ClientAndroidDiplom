@@ -87,14 +87,13 @@
             android:textSize="16sp" />
 
 
-        <TextView
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/registerTextView"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:gravity="center"
-            android:padding="8dp"
-            android:text="Don't have an account? Register"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:text="Go to Register"
             android:textColor="@color/white"
             android:textSize="14sp" />
     </LinearLayout>

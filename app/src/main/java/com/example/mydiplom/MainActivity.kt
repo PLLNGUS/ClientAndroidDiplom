@@ -73,11 +73,23 @@ class MainActivity : AppCompatActivity() {
             val email = emailText.text.toString().trim()
             val password = passwordText.text.toString().trim()
 
-            if (nickname.isNotBlank() && email.isNotBlank() && password.isNotBlank()) {
-                val user = User(nickname, email, password)
-                registerUser(user)
-            } else {
-                Toast.makeText(this, "Все поля должны быть заполнены", Toast.LENGTH_SHORT).show()
+            when {
+                nickname.isEmpty() || email.isEmpty() || password.isEmpty() -> {
+                    Toast.makeText(this, "Все поля должны быть заполнены", Toast.LENGTH_SHORT).show()
+                }
+                !isValidNickname(nickname) -> {
+                    Toast.makeText(this, "Никнейм должен содержать минимум 3 символа (буквы, цифры, _)", Toast.LENGTH_SHORT).show()
+                }
+                !isValidEmail(email) -> {
+                    Toast.makeText(this, "Некорректный формат почты", Toast.LENGTH_SHORT).show()
+                }
+                !isValidPassword(password) -> {
+                    Toast.makeText(this, "Пароль должен содержать минимум 8 символов, одну заглавную букву, одну строчную букву и одну цифру", Toast.LENGTH_SHORT).show()
+                }
+                else -> {
+                    val user = User(nickname, email, password)
+                    registerUser(user)
+                }
             }
         }
 
@@ -85,6 +97,21 @@ class MainActivity : AppCompatActivity() {
             val intent = Intent(this, EnterPage::class.java)
             startActivity(intent)
         }
+    }
+
+    private fun isValidNickname(nickname: String): Boolean {
+        val nicknamePattern = Regex("^[a-zA-Z0-9_]{3,}$")
+        return nicknamePattern.matches(nickname)
+    }
+
+    private fun isValidEmail(email: String): Boolean {
+        val emailPattern = Regex("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\$")
+        return emailPattern.matches(email)
+    }
+
+    private fun isValidPassword(password: String): Boolean {
+        val passwordPattern = Regex("^(?=.*[A-Z])(?=.*[a-z])(?=.*\\d).{8,}\$")
+        return passwordPattern.matches(password)
     }
 
     private fun setupRetrofit() {
