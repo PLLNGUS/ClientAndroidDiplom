@@ -8,11 +8,14 @@ import android.graphics.BitmapFactory
 import android.graphics.Paint
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.MotionEvent
 import android.view.View
 import android.view.animation.AnimationUtils
 import android.widget.Button
+import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
@@ -43,6 +46,7 @@ import kotlin.math.min
 class Profile : AppCompatActivity() {
 
     private lateinit var profileImageView: ImageView
+
     private var imageUri: Uri? = null
 
     companion object {
@@ -55,25 +59,38 @@ class Profile : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_profile)
+        LoadingUtils.showLoading(this)
+
+        // Симуляция загрузки данных
+        Handler(Looper.getMainLooper()).postDelayed({
+            // Скрываем загрузку после завершения
+            LoadingUtils.hideLoading()
+        }, 3000) // Задержка 3 секунды для примера
 
         profileImageView = findViewById(R.id.profileImageView)
         profileImageView.setOnClickListener { openGallery() }
-
         val userId = GlobalData.userId
+
         val nickname = intent.getStringExtra("nickname")
         val level = intent.getIntExtra("level", 1)
-
         if (userId == -1 || nickname == null) {
             Toast.makeText(this, "Ошибка: данные пользователя не найдены", Toast.LENGTH_SHORT).show()
             finish()
             return
         }
-
         findViewById<TextView>(R.id.nicknameTextView).text = nickname
         findViewById<TextView>(R.id.levelTextView).text = "Уровень: $level"
-
+        fetchUserData(userId)
         loadProfileImage(userId)
         fetchHabits(userId)
+        Log.d("Profile", "Передаем userId в Statistics: $userId")
+
+        val statisticsButton = findViewById<ImageButton>(R.id.statisticsButton)
+        statisticsButton.setOnClickListener {
+            val intent = Intent(this, Statistics::class.java)
+            intent.putExtra("USER_ID", userId)
+            startActivity(intent)
+        }
 
         findViewById<Button>(R.id.centerPlusButton).setOnClickListener {
             val intent = Intent(this, AddHabit::class.java)
@@ -81,13 +98,11 @@ class Profile : AppCompatActivity() {
             startActivityForResult(intent, ADD_HABIT_REQUEST_CODE)
         }
     }
-
     private fun openGallery() {
         val intent = Intent(Intent.ACTION_PICK)
         intent.type = "image/*"
         startActivityForResult(intent, PICK_IMAGE_REQUEST)
     }
-
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
 
@@ -164,6 +179,7 @@ class Profile : AppCompatActivity() {
     }
 
     private fun updateProfilePicturePath(userId: Int, imageUrl: String) {
+
         val url = "http://${Config.IP_ADDRESS}:5000/api/user/uploadProfilePicture"
         val jsonBody = """
             {
@@ -228,7 +244,6 @@ class Profile : AppCompatActivity() {
             }
         })
     }
-
     private fun fetchHabits(userId: Int) {
         val url = "http://${Config.IP_ADDRESS}:5000/api/Habit/user/$userId?userId=$userId"
         val request = Request.Builder().url(url).get().build()
@@ -238,7 +253,6 @@ class Profile : AppCompatActivity() {
                 Log.e("ProfileActivity", "Ошибка сети: ${e.message}")
                 showToast("Ошибка загрузки привычек")
             }
-
             override fun onResponse(call: Call, response: Response) {
                 if (response.isSuccessful) {
                     response.body?.let { responseBody ->
@@ -261,7 +275,6 @@ class Profile : AppCompatActivity() {
             }
         })
     }
-
     private fun displayHabits(habitsArray: JSONArray) {
         val habitsContainer = findViewById<LinearLayout>(R.id.habitsContainer)
         habitsContainer.removeAllViews()
@@ -276,7 +289,6 @@ class Profile : AppCompatActivity() {
             habitsContainer.addView(noHabitsText)
             return
         }
-
         for (i in 0 until habitsArray.length()) {
             val habit = habitsArray.getJSONObject(i)
             val habitId = habit.optInt("id", -1)
@@ -321,8 +333,6 @@ class Profile : AppCompatActivity() {
                     showToast("Ошибка: ID привычки не найден")
                 }
             }
-
-
             deleteButton.setOnClickListener {
                 if (habitId != -1) {
                     deleteHabit(habitId)
@@ -330,12 +340,10 @@ class Profile : AppCompatActivity() {
                     showToast("Ошибка: ID привычки не найден")
                 }
             }
-
             startFadeInAnimation(habitCard)
             habitsContainer.addView(habitCard)
         }
     }
-
     private fun deleteHabit(habitId: Int) {
         val url = "http://${Config.IP_ADDRESS}:5000/api/Habit/delete/$habitId"
         val request = Request.Builder().url(url).delete().build()
@@ -345,7 +353,6 @@ class Profile : AppCompatActivity() {
                 Log.e("ProfileActivity", "Ошибка сети: ${e.message}")
                 showToast("Ошибка сети")
             }
-
             override fun onResponse(call: Call, response: Response) {
                 if (response.isSuccessful) {
                     showToast("Привычка удалена!")
@@ -358,7 +365,6 @@ class Profile : AppCompatActivity() {
             }
         })
     }
-
     private fun markHabitAsCompleted(habitId: Int, habitCard: View) {
         // Визуальные изменения
         habitCard.setBackgroundColor(ContextCompat.getColor(this, R.color.progress_green))
@@ -366,15 +372,56 @@ class Profile : AppCompatActivity() {
             habitCard.findViewById<TextView>(R.id.habitName).paintFlags or Paint.STRIKE_THRU_TEXT_FLAG
         habitCard.findViewById<TextView>(R.id.habitDescription).paintFlags =
             habitCard.findViewById<TextView>(R.id.habitDescription).paintFlags or Paint.STRIKE_THRU_TEXT_FLAG
-
-        // Показываем уведомление
         showToast("Привычка выполнена!")
-
-        // Если хотите, можно добавить анимацию
         val animation = AnimationUtils.loadAnimation(this, R.anim.fade_in)
         habitCard.startAnimation(animation)
+
+        // Вызов API для завершения привычки
+        completeHabit(habitId)
     }
 
+    private fun completeHabit(habitId: Int) {
+        val url = "http://${Config.IP_ADDRESS}:5000/api/Habit/completeHabit"
+        val jsonBody = """
+        {
+            "UserId": ${GlobalData.userId},
+            "HabitId": $habitId
+        }
+    """.trimIndent()
+
+        val requestBody = jsonBody.toRequestBody("application/json; charset=utf-8".toMediaTypeOrNull())
+        val request = Request.Builder().url(url).post(requestBody).build()
+
+        OkHttpClient().newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                Log.e("ProfileActivity", "Ошибка сети: ${e.message}")
+                showToast("Ошибка сети")
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                if (response.isSuccessful) {
+                    response.body?.let { responseBody ->
+                        try {
+                            val jsonResponse = JSONObject(responseBody.string())
+                            val level = jsonResponse.optInt("level")
+                            val experience = jsonResponse.optInt("experiencePoints")
+
+                            runOnUiThread {
+                                updateUserProgress(level, experience)
+                            }
+                        } catch (e: JSONException) {
+                            Log.e("ProfileActivity", "Ошибка парсинга JSON: ${e.message}")
+                            showToast("Ошибка обработки данных")
+                        }
+                    }
+                } else {
+                    val errorBody = response.body?.string() ?: "Пустое тело ответа"
+                    Log.e("ProfileActivity", "Ошибка сервера: ${response.code} ${response.message}, тело: $errorBody")
+                    showToast("Ошибка при выполнении привычки")
+                }
+            }
+        })
+    }
     private fun fetchHabitProgress(habitId: Int) {
         val url = "http://${Config.IP_ADDRESS}:5000/api/HabitDiary/habit/$habitId"
         val request = Request.Builder().url(url).get().build()
@@ -383,7 +430,6 @@ class Profile : AppCompatActivity() {
             override fun onFailure(call: Call, e: IOException) {
                 Log.e("ProfileActivity", "Ошибка сети: ${e.message}")
             }
-
             override fun onResponse(call: Call, response: Response) {
                 if (response.isSuccessful) {
                     response.body?.let { responseBody ->
@@ -406,7 +452,20 @@ class Profile : AppCompatActivity() {
             }
         })
     }
+    private fun updateUserProgress(level: Int, experience: Int) {
+        // Обновление уровня
+        findViewById<TextView>(R.id.levelTextView).text = "Уровень: $level"
 
+        // Обновление прогресс-бара
+        val progressBar = findViewById<ProgressBar>(R.id.progressBar)
+        val progressText = findViewById<TextView>(R.id.progressText)
+
+        val xpForNextLevel = level * 100
+        val progress = (experience.toFloat() / xpForNextLevel) * 100
+
+        progressBar.progress = progress.toInt()
+        progressText.text = "$experience / $xpForNextLevel"
+    }
     private fun updateHabitProgress(habitId: Int, progress: Float) {
         val habitsContainer = findViewById<LinearLayout>(R.id.habitsContainer)
         for (i in 0 until habitsContainer.childCount) {
@@ -420,7 +479,6 @@ class Profile : AppCompatActivity() {
             }
         }
     }
-
     private fun fetchUserData(userId: Int) {
         val url = "http://${Config.IP_ADDRESS}:5000/api/user/$userId"
         val request = Request.Builder().url(url).get().build()
@@ -439,7 +497,11 @@ class Profile : AppCompatActivity() {
                             val experience = jsonResponse.optInt("experience", 0)
 
                             runOnUiThread {
+                                // Обновляем уровень
                                 findViewById<TextView>(R.id.levelTextView).text = "Уровень: $level"
+
+                                // Обновляем прогресс-бар и текст
+                                updateUserProgress(level, experience)
                             }
                         } catch (e: JSONException) {
                             Log.e("ProfileActivity", "Ошибка парсинга JSON: ${e.message}")

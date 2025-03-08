@@ -36,11 +36,10 @@ class MainActivity : AppCompatActivity() {
         val registerButton = findViewById<Button>(R.id.registerButton)
         val loginButton = findViewById<Button>(R.id.loginPageButton)
 
-        // Загружаем анимации
+
         scaleDownAnimation = AnimationUtils.loadAnimation(this, R.anim.scale_down)
         scaleUpAnimation = AnimationUtils.loadAnimation(this, R.anim.scale_up)
 
-        // Назначаем анимацию для кнопки регистрации
         registerButton.setOnTouchListener { view, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
@@ -53,7 +52,7 @@ class MainActivity : AppCompatActivity() {
             false
         }
 
-        // Назначаем анимацию для кнопки перехода на страницу входа
+
         loginButton.setOnTouchListener { view, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
@@ -139,7 +138,7 @@ class MainActivity : AppCompatActivity() {
             override fun onResponse(call: Call<LoginResponse>, response: Response<LoginResponse>) {
                 if (response.isSuccessful) {
                     val loginResponse = response.body()
-                    Log.d("DEBUG", "Ответ от сервера: $loginResponse") // Логируем ответ
+                    Log.d("DEBUG", "Ответ от сервера: $loginResponse")
 
                     if (loginResponse != null) {
                         Toast.makeText(this@MainActivity, "Регистрация прошла успешно!", Toast.LENGTH_SHORT).show()

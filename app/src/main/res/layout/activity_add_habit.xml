@@ -47,6 +47,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
+                    android:maxLength="20"
                     android:hint="Введите название привычки"
                     android:textColor="@color/white"
                     app:layout_constraintEnd_toEndOf="parent"
@@ -70,6 +71,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
+                    android:maxLength="160"
                     android:hint="Введите описание привычки"
                     android:textColor="@color/white"
                     app:layout_constraintEnd_toEndOf="parent"
@@ -77,7 +79,7 @@
                     app:layout_constraintTop_toBottomOf="@id/descriptionLabel" />
             </androidx.constraintlayout.widget.ConstraintLayout>
 
-            <!-- Difficulty Section -->
+
             <TextView
                 android:id="@+id/difficultyLabel"
                 android:layout_width="wrap_content"

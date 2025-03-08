@@ -7,14 +7,14 @@
     android:layout_height="match_parent"
     tools:context=".MainActivity">
 
-    <!-- Фоновое изображение -->
+
     <ImageView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:src="@drawable/photo4"
         android:scaleType="centerCrop" />
 
-    <!-- Основной контейнер для форм -->
+
     <LinearLayout
         android:layout_width="300dp"
         android:layout_height="wrap_content"
@@ -24,7 +24,7 @@
         android:orientation="vertical"
         android:padding="24dp">
 
-        <!-- Поле для ввода никнейма -->
+
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/nicknameInputLayout"
             android:layout_width="match_parent"
@@ -47,7 +47,7 @@
                 android:textColor="@color/white" />
         </com.google.android.material.textfield.TextInputLayout>
 
-        <!-- Поле для ввода email -->
+
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/emailInputLayout"
             android:layout_width="match_parent"
@@ -69,7 +69,7 @@
                 android:textColor="@color/white" />
         </com.google.android.material.textfield.TextInputLayout>
 
-        <!-- Поле для ввода пароля -->
+
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/passwordInputLayout"
             android:layout_width="match_parent"
@@ -93,7 +93,7 @@
                 android:textColor="@color/white" />
         </com.google.android.material.textfield.TextInputLayout>
 
-        <!-- Кнопка регистрации -->
+
         <androidx.appcompat.widget.AppCompatButton
             android:id="@+id/registerButton"
             android:layout_width="match_parent"

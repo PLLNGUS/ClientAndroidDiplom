@@ -14,7 +14,6 @@
         android:padding="16dp"
         android:background="@drawable/card_background">
 
-
         <TextView
             android:id="@+id/habitName"
             android:layout_width="match_parent"
@@ -74,7 +73,7 @@
                 android:paddingHorizontal="16dp"
                 android:paddingVertical="8dp"/>
 
-            <!-- Кнопка "Выполнено" -->
+
             <Button
                 android:id="@+id/completeButton"
                 android:layout_width="wrap_content"

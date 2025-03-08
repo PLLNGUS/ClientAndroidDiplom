@@ -36,11 +36,10 @@ class EnterPage : AppCompatActivity() {
         val loginButton = findViewById<Button>(R.id.loginButton)
         val registerTextView = findViewById<TextView>(R.id.registerTextView)
 
-        // Загружаем анимации
         scaleDownAnimation = AnimationUtils.loadAnimation(this, R.anim.scale_down)
         scaleUpAnimation = AnimationUtils.loadAnimation(this, R.anim.scale_up)
 
-        // Назначаем анимацию для кнопки входа
+
         loginButton.setOnTouchListener { view, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
@@ -53,7 +52,7 @@ class EnterPage : AppCompatActivity() {
             false
         }
 
-        // Назначаем анимацию для текстового поля "Регистрация"
+
         registerTextView.setOnTouchListener { view, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {

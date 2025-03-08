@@ -283,14 +283,12 @@ class AddHabit : AppCompatActivity() {
                     showToast(errorMessage)
                 }
             }
-
             override fun onFailure(call: Call<HabitResponse>, t: Throwable) {
                 Log.e("AddHabit", "Ошибка сети: ${t.message}", t)
                 showToast("Ошибка сети: ${t.message}")
             }
         })
     }
-
     private fun showToast(message: String) {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
     }
